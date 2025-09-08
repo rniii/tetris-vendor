@@ -1,12 +1,13 @@
 {
     "type": "module",
     "scripts": {
-        "start": "node src/index.ts"
+        "start": "node --env-file=.env src/index.ts"
     },
     "devDependencies": {
         "@types/node": "^24.0.15"
     },
     "dependencies": {
-        "oceanic.js": "^1.12.0"
+        "oceanic.js": "^1.12.0",
+        "tetris": "link:tetris"
     }
 }

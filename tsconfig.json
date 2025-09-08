@@ -3,8 +3,8 @@
         "allowImportingTsExtensions": true,
         "strict": true,
         "verbatimModuleSyntax": true,
-        "module": "esnext",
-        "moduleResolution": "bundler",
+        "module": "nodenext",
+        "moduleResolution": "nodenext",
         "noEmit": true,
         "target": "esnext"
     }

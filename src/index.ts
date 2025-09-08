@@ -1,9 +1,10 @@
 import "./commands/eval.ts";
+import "./commands/tetris.ts";
 
 import { Client } from "oceanic.js";
 import { registerHandlers } from "./commands.ts";
 
-export const client = new Client({
+const client = new Client({
     auth: `Bot ${process.env.TOKEN}`,
     gateway: { intents: ["ALL"] },
 });

@@ -1,5 +1,5 @@
 import { inspect, type InspectOptions } from "util";
-import { defineCommand } from "../commands";
+import { defineCommand } from "../commands.ts";
 
 defineCommand({
     name: "eval",

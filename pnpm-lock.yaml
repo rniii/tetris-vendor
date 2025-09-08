@@ -11,6 +11,9 @@ importers:
       oceanic.js:
         specifier: ^1.12.0
         version: 1.12.0
+      tetris:
+        specifier: link:tetris
+        version: link:tetris
     devDependencies:
       '@types/node':
         specifier: ^24.0.15

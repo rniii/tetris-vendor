@@ -1,5 +1,5 @@
 import { type AnyTextableChannel, Client, type CreateMessageOptions, Message } from "oceanic.js";
-import { PREFIXES } from "../config";
+import { PREFIXES } from "../config.ts";
 
 interface Command {
     name: string;
@@ -37,6 +37,10 @@ function createContext(message: Message<AnyTextableChannel>, prefix: string, com
         message,
         prefix,
         command,
+        client: message.client,
+        author: message.author,
+        channel: message.channel,
+        guild: message.guild,
         send(opts: string | CreateMessageOptions) {
             if (typeof opts == "string") opts = { content: opts };
 
@@ -106,7 +110,7 @@ async function handleMessage(msg: Message) {
     if (def.ownerOnly && !ownerIDs.includes(msg.author.id)) return ctx.react("💢");
 
     try {
-        def.execute(ctx, args);
+        await def.execute(ctx, args);
     } catch (err) {
         console.error(err);
         await ctx.reply("something went wrong!!!! >~<");
