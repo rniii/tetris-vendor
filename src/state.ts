@@ -38,4 +38,6 @@ function makeProxy(obj: Object) {
     return new Proxy(obj, proxyHandler);
 }
 
+process.once("exit", saveSettings);
+
 export const BotState = makeProxy(state) as BotState;
