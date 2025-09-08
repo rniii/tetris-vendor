@@ -6,7 +6,7 @@ interface Command {
     aliases?: string[];
     description?: string;
     ownerOnly?: true;
-    execute(ctx: ReturnType<typeof createContext>, args: string): void | Promise<void>;
+    execute(ctx: ReturnType<typeof createContext>, args: string): void | Promise<any>;
 }
 
 const ownerIDs = [] as string[];

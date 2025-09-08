@@ -1,5 +1,7 @@
+import { execSync } from "child_process";
 import { inspect, type InspectOptions } from "util";
 import { defineCommand } from "../commands.ts";
+import { BotState } from "../state.ts";
 
 defineCommand({
     name: "eval",
@@ -42,3 +44,27 @@ defineCommand({
 });
 
 const inspectOpts: InspectOptions = { colors: true, showProxy: true };
+
+defineCommand({
+    name: "restart",
+    ownerOnly: true,
+    async execute(ctx) {
+        BotState.helloChannelId = ctx.channel.id;
+        process.exit(0);
+    },
+});
+
+defineCommand({
+    name: "update",
+    ownerOnly: true,
+    async execute(ctx) {
+        if (!execSync("git pull").toString().includes("Fast-forward")) {
+            return ctx.reply("nothing to pull");
+        }
+
+        await ctx.reply("updated!!");
+
+        BotState.helloChannelId = ctx.channel.id;
+        process.exit(0);
+    },
+});
