@@ -43,7 +43,9 @@ export class Tetris {
     }
 
     softDrop(height: number) {
-        this.translate(0, -height);
+        height = Math.abs(height);
+
+        for (; height != 0; --height) this.translate(0, -1);
     }
 
     movePiece(tiles: number) {
