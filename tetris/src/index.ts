@@ -1,16 +1,21 @@
 export class Tetris {
-    shape: vec2;
+    size: vec2;
     queue: PieceType[];
     piece: Piece;
     board: Uint8Array[];
-    state: GameState;
+    score: number;
+    gameState: GameState;
+    hold?: PieceType;
+    canHold: boolean;
 
     constructor() {
-        this.shape = vec2(10, 40);
+        this.size = vec2(10, 40);
         this.queue = [];
         this.piece = this.#nextPiece();
-        this.board = createBoard(this.shape);
-        this.state = GameState.Playing;
+        this.board = createBoard(this.size);
+        this.score = 0;
+        this.gameState = GameState.Playing;
+        this.canHold = true;
     }
 
     hardDrop() {
@@ -20,11 +25,11 @@ export class Tetris {
             this.board[p.y][p.x] = this.piece.type;
         }
 
-        for (let i = 0; i < this.shape.y; ++i) {
+        for (let i = 0; i < this.size.y; ++i) {
             while (this.board[i].every(p => p)) {
                 const [row] = this.board.splice(i, 1);
                 row.fill(MinoType.Empty);
-                this.board.unshift(row);
+                this.board.push(row);
             }
         }
 
@@ -32,7 +37,7 @@ export class Tetris {
 
         for (const p of this.piece.minos) {
             if (this.board[p.y][p.x]) {
-                this.state = GameState.Blockout;
+                this.gameState = GameState.Blockout;
             }
         }
     }
@@ -68,6 +73,18 @@ export class Tetris {
         return true;
     }
 
+    swapPiece() {
+        if (!this.canHold) return;
+
+        this.#refillQueue();
+
+        const next = this.#createPiece(this.hold ?? this.queue.shift()!);
+
+        this.hold = this.piece.type;
+        this.piece = next;
+        this.canHold = false;
+    }
+
     #rotate(r: number) {
         const { x: px, y: py } = this.piece.pivot;
 
@@ -90,7 +107,7 @@ export class Tetris {
         const bag = Array.from(Array(7), (_, i) => i + 1);
 
         for (let i = 7; --i;) {
-            let j = Math.random() * (i + 1) | 0;
+            let j = Math.random() * i | 0;
             bag[i] ^= bag[j];
             bag[j] ^= bag[i];
             bag[i] ^= bag[j];
@@ -101,9 +118,13 @@ export class Tetris {
 
     #nextPiece(): Piece {
         this.#refillQueue();
+        this.canHold = true;
 
-        const type = (1 + Math.random() * 7 | 0) as PieceType;
-        const pivot = vec2(this.shape.x / 2 - 1, this.shape.y / 2);
+        return this.#createPiece(this.queue.shift()!);
+    }
+
+    #createPiece(type: PieceType): Piece {
+        const pivot = vec2(this.size.x / 2 - 1, this.size.y / 2);
         const minos = Shapes[type].map(([x, y]) => vec2(pivot.x + x, pivot.y + y));
 
         return { type, pivot, minos, rotation: 0 };
@@ -118,7 +139,7 @@ export class Tetris {
 
             if (
                 p.x < 0 || p.y < 0
-                || p.x >= this.shape.x || p.y >= this.shape.y
+                || p.x >= this.size.x || p.y >= this.size.y
                 || this.board[p.y][p.x] !== 0
             ) {
                 collided = true;
