@@ -1,3 +1,4 @@
+import { writeFileSync } from "fs";
 import { readFile, writeFile } from "fs/promises";
 
 interface BotState {
@@ -11,7 +12,7 @@ const savedState = await readFile("state.json", "utf8").then(JSON.parse).catch((
 const state = { ...defaultState, ...savedState };
 
 function saveSettings() {
-    writeFile("state.json", JSON.stringify(state, null, 4));
+    writeFile("state.json", JSON.stringify(state));
 }
 
 function makeProxy(obj: Object) {
@@ -38,6 +39,6 @@ function makeProxy(obj: Object) {
     return new Proxy(obj, proxyHandler);
 }
 
-process.once("exit", saveSettings);
+process.once("exit", () => writeFileSync("state.json", JSON.stringify(state)));
 
 export const BotState = makeProxy(state) as BotState;
