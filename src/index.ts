@@ -1,4 +1,5 @@
 import "./commands/eval.ts";
+import "./commands/info.ts";
 import "./commands/tetris.ts";
 
 import { Client } from "oceanic.js";
