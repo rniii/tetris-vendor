@@ -11,7 +11,7 @@ export class Tetris {
     constructor() {
         this.size = vec2(10, 40);
         this.queue = [];
-        this.piece = this.#nextPiece();
+        this.piece = this.nextPiece();
         this.board = createBoard(this.size);
         this.score = 0;
         this.gameState = GameState.Playing;
@@ -19,7 +19,7 @@ export class Tetris {
     }
 
     hardDrop() {
-        while (!this.#translate(0, -1));
+        while (!this.translate(0, -1));
 
         for (const p of this.piece.minos) {
             this.board[p.y][p.x] = this.piece.type;
@@ -33,7 +33,7 @@ export class Tetris {
             }
         }
 
-        this.piece = this.#nextPiece();
+        this.piece = this.nextPiece();
 
         for (const p of this.piece.minos) {
             if (this.board[p.y][p.x]) {
@@ -43,17 +43,17 @@ export class Tetris {
     }
 
     softDrop(height: number) {
-        this.#translate(0, -height);
+        this.translate(0, -height);
     }
 
     movePiece(tiles: number) {
         let dir = Math.sign(tiles);
 
-        for (; tiles != 0; tiles -= dir) this.#translate(dir, 0);
+        for (; tiles != 0; tiles -= dir) this.translate(dir, 0);
     }
 
     rotatePiece(r: -1 | 1) {
-        this.#rotate(+r);
+        this.rotate(+r);
 
         const kicks = KickTable[this.piece.type];
         const from = this.piece.rotation;
@@ -63,29 +63,29 @@ export class Tetris {
             const [ax, ay] = kicks[from][i];
             const [bx, by] = kicks[to][i];
 
-            if (!this.#translate(ax - bx, ay - by)) {
+            if (!this.translate(ax - bx, ay - by)) {
                 this.piece.rotation = to;
                 return false;
             }
         }
 
-        this.#rotate(-r);
+        this.rotate(-r);
         return true;
     }
 
     swapPiece() {
         if (!this.canHold) return;
 
-        this.#refillQueue();
+        this.refillQueue();
 
-        const next = this.#createPiece(this.hold ?? this.queue.shift()!);
+        const next = this.createPiece(this.hold ?? this.queue.shift()!);
 
         this.hold = this.piece.type;
         this.piece = next;
         this.canHold = false;
     }
 
-    #rotate(r: number) {
+    private rotate(r: number) {
         const { x: px, y: py } = this.piece.pivot;
 
         for (const p of this.piece.minos) {
@@ -101,7 +101,7 @@ export class Tetris {
         }
     }
 
-    #refillQueue() {
+    private refillQueue() {
         if (this.queue.length > 4) return;
 
         const bag = Array.from(Array(7), (_, i) => i + 1);
@@ -116,21 +116,21 @@ export class Tetris {
         this.queue.push(...bag);
     }
 
-    #nextPiece(): Piece {
-        this.#refillQueue();
+    private nextPiece(): Piece {
+        this.refillQueue();
         this.canHold = true;
 
-        return this.#createPiece(this.queue.shift()!);
+        return this.createPiece(this.queue.shift()!);
     }
 
-    #createPiece(type: PieceType): Piece {
+    private createPiece(type: PieceType): Piece {
         const pivot = vec2(this.size.x / 2 - 1, this.size.y / 2);
         const minos = Shapes[type].map(([x, y]) => vec2(pivot.x + x, pivot.y + y));
 
         return { type, pivot, minos, rotation: 0 };
     }
 
-    #translate(dx: number, dy: number) {
+    private translate(dx: number, dy: number) {
         let collided = false;
 
         for (const p of this.piece.minos) {
