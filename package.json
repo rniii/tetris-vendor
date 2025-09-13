@@ -1,10 +1,11 @@
 {
     "type": "module",
     "scripts": {
-        "start": "node --env-file=.env src/index.ts"
+        "start": "esbuild src/index.ts --bundle --format=esm --packages=external | node --env-file=.env -"
     },
     "devDependencies": {
-        "@types/node": "^24.0.15"
+        "@types/node": "^24.0.15",
+        "esbuild": "^0.25.9"
     },
     "dependencies": {
         "oceanic.js": "^1.12.0",
