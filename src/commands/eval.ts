@@ -38,10 +38,12 @@ defineCommand({
         ctx.reply(
             output.length < 1000
                 ? "```ansi\n" + output.replace("`", "`\u200b") + "\n```"
-                : { files: [{ name: "output.ansi", contents: Buffer.from(output, "utf8") }] },
+                : { files: [{ name: "output.ansi", contents: Buffer.from(output.replace(ANSI_RE, ""), "utf8") }] },
         );
     },
 });
+
+const ANSI_RE = /\x1b\[[\d;]*m/;
 
 const inspectOpts: InspectOptions = { colors: true, showProxy: true };
 
