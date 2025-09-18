@@ -6,62 +6,86 @@ interface Command {
     aliases?: string[];
     description?: string;
     ownerOnly?: true;
-    execute(ctx: ReturnType<typeof createContext>, args: string): void | Promise<any>;
+    execute(ctx: MessageContext, args: string): void | Promise<any>;
 }
 
 const ownerIDs = [] as string[];
 
 const previousResponses = new Map<string, string>();
 
-function createContext(message: Message<AnyTextableChannel>, prefix: string, command: string) {
-    const previous = previousResponses.get(message.id);
+class MessageContext {
+    previous?: string;
 
-    const createMessage = async (opts: CreateMessageOptions) => {
-        if (!previous) {
-            const response = await message.channel.createMessage(opts);
+    constructor(
+        public message: Message<AnyTextableChannel>,
+        public prefix: string,
+        public command: string,
+    ) {
+        this.previous = previousResponses.get(message.id);
+    }
+
+    async createMessage(opts: CreateMessageOptions) {
+        if (!this.previous) {
+            const response = await this.message.channel.createMessage(opts);
 
             if (previousResponses.size > 100) previousResponses.delete(previousResponses.entries().next().value![0]);
-            previousResponses.set(message.id, response.id);
+            previousResponses.set(this.message.id, response.id);
 
             return response;
         }
 
         try {
-            return message.channel.editMessage(previous, { ...opts });
-        } catch {
-            return message.channel.createMessage(opts);
-        }
-    };
-
-    return {
-        message,
-        prefix,
-        command,
-        client: message.client,
-        author: message.author,
-        channel: message.channel,
-        guild: message.guild,
-        send(opts: string | CreateMessageOptions) {
-            if (typeof opts == "string") opts = { content: opts };
-
-            return createMessage(opts);
-        },
-        reply(opts: string | CreateMessageOptions) {
-            if (typeof opts == "string") opts = { content: opts };
-
-            return createMessage({
+            return this.channel.editMessage(this.previous, {
+                attachments: [],
+                components: [],
+                embeds: [],
+                content: "",
+                files: [],
                 ...opts,
-                messageReference: {
-                    messageID: message.id,
-                    channelID: message.channelID,
-                    guildID: message.guildID!,
-                },
             });
-        },
-        react(emoji: string) {
-            return message.createReaction(emoji);
-        },
-    };
+        } catch {
+            return this.channel.createMessage(opts);
+        }
+    }
+
+    get client() {
+        return this.message.client;
+    }
+
+    get author() {
+        return this.message.author;
+    }
+
+    get channel() {
+        return this.message.channel;
+    }
+
+    get guild() {
+        return this.message.guild;
+    }
+
+    send(opts: string | CreateMessageOptions) {
+        if (typeof opts == "string") opts = { content: opts };
+
+        return this.createMessage(opts);
+    }
+
+    reply(opts: string | CreateMessageOptions) {
+        if (typeof opts == "string") opts = { content: opts };
+
+        return this.createMessage({
+            ...opts,
+            messageReference: {
+                messageID: this.message.id,
+                channelID: this.message.channelID,
+                guildID: this.message.guildID!,
+            },
+        });
+    }
+
+    react(emoji: string) {
+        return this.message.createReaction(emoji);
+    }
 }
 
 const Commands = Object.create(null) as Record<string, Command>;
@@ -105,7 +129,7 @@ async function handleMessage(msg: Message) {
 
     if (!msg.channel) await msg.client.rest.channels.get(msg.channelID);
 
-    const ctx = createContext(msg as any, prefix, command);
+    const ctx = new MessageContext(msg as any, prefix, command);
 
     if (def.ownerOnly && !ownerIDs.includes(msg.author.id)) return ctx.react("💢");
 
