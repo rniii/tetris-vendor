@@ -21,6 +21,7 @@ defineCommand({
                         if (!first) output += " ";
 
                         output += typeof arg == "string" ? arg : inspect(arg, inspectOpts);
+                        output += "\n";
 
                         first = false;
                     }

@@ -123,7 +123,7 @@ async function handleMessage(msg: Message) {
     const prefix = PREFIXES.find(p => lower.startsWith(p));
     if (!prefix) return;
 
-    const [command, args] = msg.content.slice(prefix.length).trim().split(/\s+(.*)/)!;
+    const [command, args] = msg.content.slice(prefix.length).trim().split(/\s+(.*)/s)!;
     const def = Commands[command.toLowerCase()];
     if (!def) return;
 
