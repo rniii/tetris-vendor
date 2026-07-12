@@ -1,5 +1,5 @@
 import { type AnyTextableChannel, Client, type CreateMessageOptions, Message } from "oceanic.js";
-import { PREFIXES } from "../config.ts";
+import { PREFIXES, OWNER_IDS } from "../config.ts";
 
 interface Command {
     name: string;
@@ -9,7 +9,7 @@ interface Command {
     execute(ctx: MessageContext, args: string): void | Promise<any>;
 }
 
-const ownerIDs = [] as string[];
+const ownerIDs = [...OWNER_IDS];
 
 const previousResponses = new Map<string, string>();
 
