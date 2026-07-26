@@ -1,142 +1,119 @@
-import { type AnyTextableChannel, Client, type CreateMessageOptions, Message } from "oceanic.js";
-import { PREFIXES, OWNER_IDS } from "../config.ts";
+import {
+    ApplicationCommandTypes,
+    Client,
+    CommandInteraction,
+    InteractionTypes,
+    type AnyTextableChannel,
+    type ApplicationCommandInteractionData,
+    type ApplicationCommandOptions,
+    type CreateChatInputApplicationCommandOptions,
+    type CreateMessageOptions,
+} from "oceanic.js";
+import { OWNER_IDS } from "../config.ts";
+
+const ownerIds = [...OWNER_IDS];
 
 interface Command {
     name: string;
-    aliases?: string[];
     description?: string;
     ownerOnly?: true;
-    execute(ctx: MessageContext, args: string): void | Promise<any>;
+    options?: ApplicationCommandOptions[];
+
+    execute(ctx: CommandContext, data: ApplicationCommandInteractionData): void | Promise<any>;
 }
 
-const ownerIDs = [...OWNER_IDS];
-
-const previousResponses = new Map<string, string>();
-
-class MessageContext {
-    previous?: string;
+class CommandContext {
+    interaction: CommandInteraction<AnyTextableChannel>;
 
     constructor(
-        public message: Message<AnyTextableChannel>,
-        public prefix: string,
-        public command: string,
+        interaction: CommandInteraction<AnyTextableChannel>,
     ) {
-        this.previous = previousResponses.get(message.id);
-    }
-
-    async createMessage(opts: CreateMessageOptions) {
-        if (!this.previous) {
-            const response = await this.message.channel.createMessage(opts);
-
-            if (previousResponses.size > 100) previousResponses.delete(previousResponses.entries().next().value![0]);
-            previousResponses.set(this.message.id, response.id);
-
-            return response;
-        }
-
-        try {
-            return this.channel.editMessage(this.previous, {
-                attachments: [],
-                components: [],
-                embeds: [],
-                content: "",
-                files: [],
-                ...opts,
-            });
-        } catch {
-            return this.channel.createMessage(opts);
-        }
+        this.interaction = interaction;
     }
 
     get client() {
-        return this.message.client;
+        return this.interaction.client;
     }
 
-    get author() {
-        return this.message.author;
+    get user() {
+        return this.interaction.user;
     }
 
     get channel() {
-        return this.message.channel;
+        return this.interaction.channel;
     }
 
     get guild() {
-        return this.message.guild;
-    }
-
-    send(opts: string | CreateMessageOptions) {
-        if (typeof opts == "string") opts = { content: opts };
-
-        return this.createMessage(opts);
+        return this.interaction.guild;
     }
 
     reply(opts: string | CreateMessageOptions) {
         if (typeof opts == "string") opts = { content: opts };
 
-        return this.createMessage({
-            ...opts,
-            messageReference: {
-                messageID: this.message.id,
-                channelID: this.message.channelID,
-                guildID: this.message.guildID!,
-            },
-        });
-    }
-
-    react(emoji: string) {
-        return this.message.createReaction(emoji);
+        return this.interaction.createFollowup({ ...opts });
     }
 }
 
 const Commands = Object.create(null) as Record<string, Command>;
 
-export function defineCommand(opts: Command) {
-    for (const name of [opts.name, ...opts.aliases ?? []]) {
-        if (Commands[name]) throw Error(`${name} already registered`);
+export function defineCommand(def: Command) {
+    if (Commands[def.name]) throw Error(`${def.name} already registered`);
 
-        Commands[name] = opts;
+    Commands[def.name] = def;
+}
+
+async function registerCommands(client: Client) {
+    await client.rest.applications.bulkEditGlobalCommands(
+        client.application.id,
+        Object.values(Commands).map(def => ({
+            name: def.name,
+            description: def.description ?? "⋯",
+            options: def.options,
+            type: ApplicationCommandTypes.CHAT_INPUT,
+        } as CreateChatInputApplicationCommandOptions)),
+    );
+}
+
+async function loadOwnerIds(client: Client) {
+    const application = await client.rest.oauth.getApplication();
+
+    if (!application.team) {
+        return ownerIds.push(application.ownerID);
+    }
+
+    for (const member of application.team.members) {
+        if (member.role !== "admin") continue;
+
+        ownerIds.push(member.user.id);
     }
 }
 
 export function registerHandlers(client: Client) {
-    client.on("messageCreate", (msg) => handleMessage(msg));
-    client.on("messageUpdate", (msg, prev) => {
-        if (prev && msg.content === prev.content) return;
-        if (!msg.editedTimestamp) return;
-        if (msg.editedTimestamp.getTime() < Date.now() - 5 * 60 * 1000) return;
+    client.on("interactionCreate", async interaction => {
+        if (interaction.type !== InteractionTypes.APPLICATION_COMMAND) return;
 
-        handleMessage(msg);
+        const def = Commands[interaction.data.name];
+        if (!def) return;
+
+        await interaction.defer();
+
+        if (def.ownerOnly && !ownerIds.includes(interaction.user.id)) {
+            return interaction.reply({ content: "💢" });
+        }
+
+        if (!interaction.channel) await client.rest.channels.get(interaction.channelID);
+
+        const ctx = new CommandContext(interaction as any);
+        try {
+            await def.execute(ctx, interaction.data);
+        } catch (err) {
+            console.error(err);
+            await ctx.reply("something exploded//// >~<");
+        }
     });
-    client.once("ready", () => {
-        client.rest.oauth.getApplication().then(app => {
-            app.team
-                ? ownerIDs.push(...app.team.members.filter(m => m.role === "admin").map(m => m.user.id))
-                : ownerIDs.push(app.ownerID);
-        });
+
+    client.once("ready", async () => {
+        await loadOwnerIds(client);
+        await registerCommands(client);
     });
-}
-
-async function handleMessage(msg: Message) {
-    if (msg.author.bot) return;
-
-    const lower = msg.content.toLowerCase();
-    const prefix = PREFIXES.find(p => lower.startsWith(p));
-    if (!prefix) return;
-
-    const [command, args] = msg.content.slice(prefix.length).trim().split(/\s+(.*)/s)!;
-    const def = Commands[command.toLowerCase()];
-    if (!def) return;
-
-    if (!msg.channel) await msg.client.rest.channels.get(msg.channelID);
-
-    const ctx = new MessageContext(msg as any, prefix, command);
-
-    if (def.ownerOnly && !ownerIDs.includes(msg.author.id)) return ctx.react("💢");
-
-    try {
-        await def.execute(ctx, args);
-    } catch (err) {
-        console.error(err);
-        await ctx.reply("something went wrong!!!! >~<");
-    }
 }

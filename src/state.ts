@@ -1,44 +1,30 @@
 import { writeFileSync } from "fs";
 import { readFile, writeFile } from "fs/promises";
 
-interface BotState {
-    helloChannelId?: string;
+interface State {
+    helloResponse?: [token: string, messageId: string];
 }
 
-const defaultState: BotState = {};
+const state = await readFile("state.json", "utf8").then(JSON.parse).catch(() => ({}));
 
-const savedState = await readFile("state.json", "utf8").then(JSON.parse).catch(() => {});
-
-const state = { ...defaultState, ...savedState };
-
-function saveSettings() {
-    writeFile("state.json", JSON.stringify(state));
+let dirty = false;
+async function saveSettings() {
+    dirty = true;
+    await writeFile("state.json", JSON.stringify(state));
+    dirty = false;
 }
 
-function makeProxy(obj: Object) {
-    const proxyHandler = {} as ProxyHandler<any>;
-    proxyHandler.get = (target, p, receiver) => {
-        const res = Reflect.get(target, p, receiver);
+process.on("exit", () => dirty && writeFileSync("state.json", JSON.stringify(state)));
 
-        if (typeof res === "object" && res !== null && !Array.isArray(res)) {
-            return new Proxy(res, proxyHandler);
-        }
-
-        return res;
-    };
-
-    for (const operation of ["set", "defineProperty", "deleteProperty"] as const) {
-        proxyHandler[operation] = (...args: any[]) => {
-            // @ts-expect-error
-            const res = Reflect[operation](...args);
-            saveSettings();
-            return res;
-        };
-    }
-
-    return new Proxy(obj, proxyHandler);
+export function setState<K extends keyof State>(key: K, value: State[K]) {
+    state[key] = value;
+    saveSettings();
 }
 
-process.once("exit", () => writeFileSync("state.json", JSON.stringify(state)));
+export function getState<K extends keyof State>(key: K): State[K] {
+    return state[key];
+}
 
-export const BotState = makeProxy(state) as BotState;
+export function deleteState(key: keyof State) {
+    delete state[key];
+}

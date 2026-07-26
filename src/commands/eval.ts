@@ -1,16 +1,22 @@
 import { execSync } from "child_process";
 import { inspect, type InspectOptions } from "util";
 import { defineCommand } from "../commands.ts";
-import { BotState } from "../state.ts";
+import { setState } from "../state.ts";
+import { ApplicationCommandOptionTypes, CommandInteraction } from "oceanic.js";
 
 defineCommand({
     name: "eval",
-    aliases: ["e"],
     ownerOnly: true,
-    async execute(ctx, code) {
+    options: [{
+        name: "code",
+        description: "Haskell code to run",
+        type: ApplicationCommandOptionTypes.STRING,
+    }],
+
+    async execute(ctx, data) {
         let output = "";
 
-        let script = code.replace(/^```(\w+\n)?|```$/g, "");
+        let script = data.options.getStringOption("code", true).value;
         if (script.includes("await")) script = `(async () => { ${script} })()`;
 
         try {
@@ -27,7 +33,7 @@ defineCommand({
                     }
                 },
             };
-            const { author, channel, content, guild, member } = ctx.message;
+            const { user, channel, guild, member } = ctx.interaction;
 
             var result = await eval(script);
         } catch (err) {
@@ -52,8 +58,7 @@ defineCommand({
     name: "restart",
     ownerOnly: true,
     async execute(ctx) {
-        BotState.helloChannelId = ctx.channel.id;
-        process.exit(0);
+        await restartBot(ctx.interaction);
     },
 });
 
@@ -66,8 +71,16 @@ defineCommand({
         }
 
         await ctx.reply("updated!!");
-
-        BotState.helloChannelId = ctx.channel.id;
-        process.exit(0);
+        await restartBot(ctx.interaction);
     },
 });
+
+async function restartBot(interaction: CommandInteraction) {
+    const response = await interaction.createFollowup({
+        content:"restarting... (＿  ＿  ) ⋯",
+    });
+
+    setState("helloResponse", [interaction.token, response.message.id]);
+
+    process.exit(0); // thx systemd
+}
